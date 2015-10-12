@@ -13,4 +13,5 @@ ENABLE_MODERN_CPP()
 #GENERATE_LIB(ordercpp)
 
 add_subdirectory(tests)
+add_subdirectory(tests2)
 
