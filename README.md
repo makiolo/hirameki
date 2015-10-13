@@ -3,4 +3,4 @@
 
 * perpetual beta :pushpin: :construction:
 * From here, will emerge new projects
-* Don't compile this at home
+* Don't compile this at home :no_entry_sign:
