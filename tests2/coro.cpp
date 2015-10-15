@@ -5,6 +5,7 @@
 #include <coro/cmd.h>
 #include <asyncply/parallel.h>
 #include <libssh/libssh.h>
+#include <simple_match/simple_match.hpp>
 
 int show_remote_processes(ssh_session session)
 {
@@ -126,6 +127,44 @@ int main()
 	using namespace asyncply;
 	std::cout.sync_with_stdio(false);
 
+	{
+		using namespace simple_match::placeholders;
+
+		int x = 0;
+		bool fail = false;
+		while (!fail)
+		{
+			std::cout << "write: " << std::endl;
+			fail = !(std::cin >> x);
+			if(!fail)
+			{
+				simple_match::match(x,
+					1, []()
+					{
+						std::cout << "The answer is one\n";
+					},
+					2, []()
+					{
+						std::cout << "The answer is two\n";
+					},
+					_x < 10, [](auto&& a)
+					{
+						std::cout << "The answer " << a << " is less than 10\n";
+					},
+					10 < _x < 20, [](auto&& a)
+					{
+						std::cout << "The answer " << a << " is between 10 and 20 exclusive\n";
+					},
+					_, []()
+					{
+						std::cout << "Did not match\n";
+					}
+				);
+			}
+		}
+	}
+
+
 	std::vector<std::string> lines;
 	pipe_string(find("../tests"), grep("test_"), out(lines));
 	for (auto& line : lines)
@@ -166,10 +205,10 @@ int main()
 	// 	ssh_free(my_ssh_session);
 	// 	exit(-1);
 	// }
-    //
+	//
 	// std::cout << "connected!" << std::endl;
 	// show_remote_processes(my_ssh_session);
-    //
+	//
 	// ssh_disconnect(my_ssh_session);
 	// ssh_free(my_ssh_session);
 

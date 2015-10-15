@@ -10,6 +10,8 @@ ENDIF()
 
 include(utils)
 ENABLE_MODERN_CPP()
+
+include_directories(simple_match/include)
 #GENERATE_LIB(ordercpp)
 
 add_subdirectory(tests)
