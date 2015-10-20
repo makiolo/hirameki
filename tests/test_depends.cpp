@@ -98,12 +98,10 @@ public:
 		// 1/4: Generate solutions in each node
 		plans_set sols;
 		nodes_unordered classified;
-		int i = 0;
 		for(auto& node : _nodes)
 		{
 			if(classified.count(node) == 0)
 			{
-				++i;
 				auto solution = node->resolve();
 				sols.emplace( solution );
 				for(auto& n : solution)
@@ -219,13 +217,6 @@ int main(int, const char**)
 
 	g.calculate();
 	g.show_plan();
-
-	// std::cout << "solution docker" << std::endl;
-	// auto solution = docker->resolve();
-	// for(auto& node : solution)
-	// {
-	// 	std::cout << node->get_name() << std::endl;
-	// }
 
 	return 0;
 }
