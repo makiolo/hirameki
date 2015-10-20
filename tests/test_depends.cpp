@@ -2,6 +2,7 @@
 #include <memory>
 #include <unordered_set>
 #include <set>
+#include <unordered_map>
 #include <vector>
 #include <sstream>
 #include <functional>
@@ -83,27 +84,28 @@ public:
 
 	node_internal make_node(const std::string& key)
 	{
-		_nodes.emplace_back( std::make_shared<node>(key) );
-		return _nodes.back();
+		auto newnode = std::make_shared<node>(key);
+		_nodes.emplace_back( std::weak_ptr<node>(newnode) );
+		return newnode;
 	}
 
-	const std::vector<node_internal>& get_container() const { return _nodes; }
+	const nodes_ordered& get_container() const { return _nodes; }
 
-	void calculate()
+	void calculate(bool merge_roots = true)
 	{
-		std::set<nodes_ordered> _solutions;
+		// 1/4: Generate solutions in each node
+		std::set<nodes_ordered> sols;
 		for(auto& node : _nodes)
 		{
 			auto solution = node->resolve();
-			_solutions.emplace( solution );
+			sols.emplace( solution );
 		}
 
-		// copy
-		_solutions_filtered = _solutions;
-
-		for(auto& solution1 : _solutions)
+		// 2/4: remove solutions are subset of other solution
+		std::set<nodes_ordered> sols2 = sols;
+		for(auto& solution1 : sols)
 		{
-			for(auto& solution2 : _solutions)
+			for(auto& solution2 : sols)
 			{
 				if(solution1 != solution2)
 				{
@@ -119,16 +121,53 @@ public:
 					}
 					if(match)
 					{
-						_solutions_filtered.erase(solution1);
+						sols2.erase(solution1);
 					}
 				}
 			}
+		}
+
+		if(merge_roots)
+		{
+			// 3/4: merge solutions with same root
+			std::map<node_internal, nodes_ordered> sols3;
+			for(auto& solution : sols2)
+			{
+				auto& first = solution.front();
+				auto& chunk = sols3[first];
+				for(auto& node : solution)
+				{
+					if(node != first)
+					{
+						if(std::find(chunk.begin(), chunk.end(), node) == chunk.end())
+						{
+							chunk.emplace_back(node);
+						}
+					}
+				}
+			}
+
+			// 4/4: write final plan
+			for(auto& pair : sols3)
+			{
+				nodes_ordered nodes;
+				nodes.emplace_back(pair.first);
+				for(auto& node : pair.second)
+				{
+					nodes.emplace_back(node);
+				}
+				_solutions.emplace(nodes);
+			}
+		}
+		else
+		{
+			_solutions = sols2;
 		}
 	}
 
 	void show_plan()
 	{
-		for(auto& solution : _solutions_filtered)
+		for(auto& solution : _solutions)
 		{
 			std::cout << "---------------- plan " << std::endl;
 			for(auto& node : solution)
@@ -139,8 +178,8 @@ public:
 	}
 
 protected:
-	std::set<nodes_ordered> _solutions_filtered;
-	std::vector<node_internal> _nodes;
+	std::set<nodes_ordered> _solutions;
+	nodes_ordered _nodes;
 };
 
 int main(int, const char**)
@@ -156,6 +195,7 @@ int main(int, const char**)
 	auto e = g.make_node("e");
 	auto f = g.make_node("f");
 	auto h = g.make_node("h");
+	auto j = g.make_node("j");
 
 	asyncply->needs(fes);
 	fes->needs(docker);
@@ -163,6 +203,7 @@ int main(int, const char**)
 	docker->needs(linux);
 	apt_get->needs(linux);
 	e->needs(d);
+	j->needs(d);
 
 	g.calculate();
 	g.show_plan();
