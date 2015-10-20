@@ -80,12 +80,14 @@ class graph
 {
 public:
 	using node_internal = node::node_internal;
+	using nodes_unordered = node::nodes_unordered;
 	using nodes_ordered = node::nodes_ordered;
+	using plans_set = std::set<nodes_ordered>;
 
 	node_internal make_node(const std::string& key)
 	{
 		auto newnode = std::make_shared<node>(key);
-		_nodes.emplace_back( std::weak_ptr<node>(newnode) );
+		_nodes.insert(_nodes.begin(), newnode);
 		return newnode;
 	}
 
@@ -94,15 +96,25 @@ public:
 	void calculate(bool merge_roots = true)
 	{
 		// 1/4: Generate solutions in each node
-		std::set<nodes_ordered> sols;
+		plans_set sols;
+		nodes_unordered classified;
+		int i = 0;
 		for(auto& node : _nodes)
 		{
-			auto solution = node->resolve();
-			sols.emplace( solution );
+			if(classified.count(node) == 0)
+			{
+				++i;
+				auto solution = node->resolve();
+				sols.emplace( solution );
+				for(auto& n : solution)
+				{
+					classified.emplace(n);
+				}
+			}
 		}
 
 		// 2/4: remove solutions are subset of other solution
-		std::set<nodes_ordered> sols2 = sols;
+		plans_set sols2 = sols;
 		for(auto& solution1 : sols)
 		{
 			for(auto& solution2 : sols)
@@ -130,7 +142,7 @@ public:
 		if(merge_roots)
 		{
 			// 3/4: merge solutions with same root
-			std::map<node_internal, nodes_ordered> sols3;
+			std::unordered_map<node_internal, nodes_ordered> sols3;
 			for(auto& solution : sols2)
 			{
 				auto& first = solution.front();
@@ -178,7 +190,7 @@ public:
 	}
 
 protected:
-	std::set<nodes_ordered> _solutions;
+	plans_set _solutions;
 	nodes_ordered _nodes;
 };
 
