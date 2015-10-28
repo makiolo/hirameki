@@ -7,6 +7,7 @@
 #include <sstream>
 #include <functional>
 #include <algorithm>
+#include <exception>
 #include <asyncply/parallel.h>
 
 class node : public std::enable_shared_from_this<node>
@@ -16,8 +17,9 @@ public:
 	using nodes_unordered = std::unordered_set<node_internal>;
 	using nodes_ordered = std::vector<node_internal>;
 
-	node(std::string name)
+	node(std::string name, int priority)
 		: _name(std::move(name))
+		, _priority(priority)
 	{
 		;
 	}
@@ -43,6 +45,7 @@ public:
 	}
 
 	const std::string& get_name() const { return _name; }
+	int get_priority() { return _priority; }
 
 protected:
 	node_internal shared()
@@ -53,7 +56,7 @@ protected:
 	void _resolve(nodes_ordered& resolved, nodes_unordered& seen)
 	{
 		seen.emplace(shared());
-		for(auto node : _depends)
+		for(auto& node : _depends)
 		{
 			if(std::find(resolved.begin(), resolved.end(), node) == resolved.end())
 			{
@@ -74,6 +77,7 @@ protected:
 protected:
 	std::string _name;
 	nodes_ordered _depends;
+	int _priority;
 };
 
 class graph
@@ -82,11 +86,12 @@ public:
 	using node_internal = node::node_internal;
 	using nodes_unordered = node::nodes_unordered;
 	using nodes_ordered = node::nodes_ordered;
-	using plans_set = std::set<nodes_ordered>;
+	using plans_vector = std::vector<nodes_ordered>;
+	using plans_priorized_vector = std::vector<std::pair<int, nodes_ordered> >;
 
-	node_internal make_node(const std::string& key)
+	node_internal make_node(const std::string& key, int priority)
 	{
-		auto newnode = std::make_shared<node>(key);
+		auto newnode = std::make_shared<node>(key, priority);
 		_nodes.insert(_nodes.begin(), newnode);
 		return newnode;
 	}
@@ -96,14 +101,14 @@ public:
 	void calculate(bool merge_roots = true)
 	{
 		// 1/4: Generate solutions in each node
-		plans_set sols;
+		plans_vector sols;
 		nodes_unordered classified;
 		for(auto& node : _nodes)
 		{
 			if(classified.count(node) == 0)
 			{
 				auto solution = node->resolve();
-				sols.emplace( solution );
+				sols.emplace_back( solution );
 				for(auto& n : solution)
 				{
 					classified.emplace(n);
@@ -112,7 +117,7 @@ public:
 		}
 
 		// 2/4: remove solutions are subset of other solution
-		plans_set sols2 = sols;
+		plans_vector sols2 = sols;
 		for(auto& solution1 : sols)
 		{
 			for(auto& solution2 : sols)
@@ -131,7 +136,8 @@ public:
 					}
 					if(match)
 					{
-						sols2.erase(solution1);
+						auto it = std::remove(sols2.begin(), sols2.end(), solution1);
+						sols2.erase(it, sols2.end());
 					}
 				}
 			}
@@ -161,34 +167,66 @@ public:
 			for(auto& pair : sols3)
 			{
 				nodes_ordered nodes;
+				auto priority_total = pair.first->get_priority();
 				nodes.emplace_back(pair.first);
 				for(auto& node : pair.second)
 				{
 					nodes.emplace_back(node);
+					priority_total += node->get_priority();
 				}
-				_solutions.emplace(nodes);
+				priority_total /= static_cast<int>(nodes.size());
+				_solutions.emplace_back(std::make_pair(priority_total, nodes));
 			}
+
+			// validation groups
+			for(auto& pair : _solutions)
+			{
+				auto valid_priority = pair.first;
+				auto& solution = pair.second;
+				for(auto& node : solution)
+				{
+					if(node->get_priority() != valid_priority)
+					{
+						std::stringstream ss;
+						ss << "Invalid group, node " << node->get_name() << " has priority " << node->get_priority() << " and expected " << valid_priority << std::endl;
+						ss << "Maybe: " << node->get_name() << " this in invalid group";
+						throw std::runtime_error(ss.str());
+					}
+				}
+			}
+
+			// 5/4: sort using priority
+			std::sort(_solutions.begin(), _solutions.end(),
+					[]( const plans_priorized_vector::value_type& one,
+						const plans_priorized_vector::value_type& other) {
+						return one.first < other.first;
+					});
 		}
 		else
 		{
-			_solutions = sols2;
+			for(auto& solution : sols2)
+			{
+				_solutions.emplace_back(std::make_pair(0, solution));
+			}
 		}
 	}
 
 	void show_plan()
 	{
-		for(auto& solution : _solutions)
+		for(auto& pair : _solutions)
 		{
+			auto& solution = pair.second;
 			std::cout << "---------------- plan " << std::endl;
 			for(auto& node : solution)
 			{
+				//std::cout << node->get_name() << " (priority: " << node->get_priority() << ")" << std::endl;
 				std::cout << node->get_name() << std::endl;
 			}
 		}
 	}
 
 protected:
-	plans_set _solutions;
+	plans_priorized_vector _solutions;
 	nodes_ordered _nodes;
 };
 
@@ -196,24 +234,25 @@ int main(int, const char**)
 {
 	graph g;
 
-	auto linux = g.make_node("linux");
-	auto docker = g.make_node("docker");
-	auto apt_get = g.make_node("apt-get");
-	auto fes = g.make_node("fes");
-	auto asyncply = g.make_node("asyncply");
-	auto d = g.make_node("d");
-	auto e = g.make_node("e");
-	auto f = g.make_node("f");
-	auto h = g.make_node("h");
-	auto j = g.make_node("j");
+	auto cloog = g.make_node("cloog", 10);
+	auto gcc = g.make_node("gcc", 10);
+	auto minimal = g.make_node("minimal", 10);
+	auto lapack = g.make_node("lapack", 20);
+	auto cmake = g.make_node("cmake", 20);
+	auto python = g.make_node("python", 20);
+	auto tools = g.make_node("tools", 20);
+	auto xerces = g.make_node("xerces", 30);
+	auto xalan = g.make_node("xalan", 30);
+	auto lua = g.make_node("lua", 30);
 
-	asyncply->needs(fes);
-	fes->needs(docker);
-	docker->needs(apt_get);
-	docker->needs(linux);
-	apt_get->needs(linux);
-	e->needs(d);
-	j->needs(d);
+	gcc->needs(cloog);
+	minimal->needs(cloog);
+	minimal->needs(gcc);
+	lapack->needs(cmake);
+	tools->needs(cmake);
+	tools->needs(python);
+	tools->needs(lapack);
+	xalan->needs(xerces);
 
 	g.calculate();
 	g.show_plan();
