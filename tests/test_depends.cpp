@@ -10,12 +10,57 @@
 #include <exception>
 #include <asyncply/parallel.h>
 
-class node : public std::enable_shared_from_this<node>
+enum kind_layers
+{
+	minimal,
+	tools,
+	third_party,
+	default_layer
+};
+
+enum kind_relations
+{
+	needs,
+	use,
+	improve,
+	satisfy,
+	esta,
+	hay,
+};
+
+class node;
+
+class relation
 {
 public:
 	using node_internal = std::shared_ptr<node>;
 	using nodes_unordered = std::unordered_set<node_internal>;
 	using nodes_ordered = std::vector<node_internal>;
+
+	relation(node_internal from, node_internal to, int kind)
+		: _from(std::move(from))
+		, _to(std::move(to))
+		, _kind(kind)
+	{
+		;
+	}
+
+	auto from() const {return _from;}
+	auto to() const {return _to;}
+	auto kind() const {return _kind;}
+
+protected:
+	node_internal _from;
+	node_internal _to;
+	int _kind;
+};
+
+class node : public std::enable_shared_from_this<node>
+{
+public:
+	using node_internal = relation::node_internal;
+	using nodes_unordered = relation::nodes_unordered;
+	using nodes_ordered = relation::nodes_ordered;
 
 	node(std::string name, int priority)
 		: _name(std::move(name))
@@ -24,24 +69,58 @@ public:
 		;
 	}
 
-	virtual ~node() { ; }
+	~node() { ; }
 
 	node(const node& other) = delete;
 	node(node&& other) = delete;
 	node& operator=(const node& other) = delete;
 	node& operator=(node&& other) = delete;
 
-	void needs(const node_internal& other)
+	void relation_of(int kind, const node_internal& other)
 	{
-		_depends.emplace_back(other);
+		_depends.emplace_back(shared(), other, kind);
+		other->relation_inverse_of(shared(), kind);
 	}
 
-	nodes_ordered resolve()
+	void relation_inverse_of(const node_internal& other, int kind)
+	{
+		_inverses.emplace_back(shared(), other, kind);
+	}
+
+	nodes_ordered what(int kind)
 	{
 		nodes_ordered resolved;
 		nodes_unordered seen;
-		_resolve(resolved, seen);
+		_resolve(kind, resolved, seen, false);
+
+		// remove me
+		auto it = std::remove(resolved.begin(), resolved.end(), shared());
+		resolved.erase(it, resolved.end());
+
 		return resolved;
+	}
+
+	nodes_ordered where(int kind)
+	{
+		return what(kind);
+	}
+
+	nodes_ordered how(int kind)
+	{
+		nodes_ordered resolved;
+		nodes_unordered seen;
+		_resolve(kind, resolved, seen, true);
+
+		// remove me
+		auto it = std::remove(resolved.begin(), resolved.end(), shared());
+		resolved.erase(it, resolved.end());
+
+		return resolved;
+	}
+
+	nodes_ordered who(int kind)
+	{
+		return how(kind);
 	}
 
 	const std::string& get_name() const { return _name; }
@@ -53,21 +132,31 @@ protected:
 		return shared_from_this();
 	}
 
-	void _resolve(nodes_ordered& resolved, nodes_unordered& seen)
+	void _resolve(int kind, nodes_ordered& resolved, nodes_unordered& seen, bool inverse)
 	{
 		seen.emplace(shared());
-		for(auto& node : _depends)
+		std::vector<relation> relations;
+		if(!inverse)
+			relations = _depends;
+		else
+			relations = _inverses;
+
+		for(auto& relation : relations)
 		{
-			if(std::find(resolved.begin(), resolved.end(), node) == resolved.end())
+			if(kind == relation.kind())
 			{
-				if(seen.count(node) > 0)
+				node_internal node = relation.to();
+				if(std::find(resolved.begin(), resolved.end(), node) == resolved.end())
 				{
-					std::stringstream ss;
-					ss << "Circular reference detected: ";
-					ss << get_name() <<  " and " << node->get_name();
-					throw std::runtime_error(ss.str());
+					if(seen.count(node) > 0)
+					{
+						std::stringstream ss;
+						ss << "Circular reference detected: ";
+						ss << get_name() <<  " and " << node->get_name();
+						throw std::runtime_error(ss.str());
+					}
+					node->_resolve(kind, resolved, seen, inverse);
 				}
-				node->_resolve(resolved, seen);
 			}
 		}
 		resolved.emplace_back(shared());
@@ -76,7 +165,8 @@ protected:
 
 protected:
 	std::string _name;
-	nodes_ordered _depends;
+	std::vector<relation> _depends;
+	std::vector<relation> _inverses;
 	int _priority;
 };
 
@@ -89,7 +179,7 @@ public:
 	using plans_vector = std::vector<nodes_ordered>;
 	using plans_priorized_vector = std::vector<std::pair<int, nodes_ordered> >;
 
-	node_internal make_node(const std::string& key, int priority)
+	node_internal make_node(const std::string& key, int priority = default_layer)
 	{
 		auto newnode = std::make_shared<node>(key, priority);
 		_nodes.insert(_nodes.begin(), newnode);
@@ -98,7 +188,7 @@ public:
 
 	const nodes_ordered& get_container() const { return _nodes; }
 
-	void calculate(bool merge_roots = true)
+	void resolve_all(int kind = needs, bool merge_roots = true)
 	{
 		// 1/4: Generate solutions in each node
 		plans_vector sols;
@@ -107,7 +197,7 @@ public:
 		{
 			if(classified.count(node) == 0)
 			{
-				auto solution = node->resolve();
+				auto solution = node->what(kind);
 				sols.emplace_back( solution );
 				for(auto& n : solution)
 				{
@@ -234,28 +324,74 @@ int main(int, const char**)
 {
 	graph g;
 
-	auto cloog = g.make_node("cloog", 10);
-	auto gcc = g.make_node("gcc", 10);
-	auto minimal = g.make_node("minimal", 10);
-	auto lapack = g.make_node("lapack", 20);
-	auto cmake = g.make_node("cmake", 20);
-	auto python = g.make_node("python", 20);
-	auto tools = g.make_node("tools", 20);
-	auto xerces = g.make_node("xerces", 30);
-	auto xalan = g.make_node("xalan", 30);
-	auto lua = g.make_node("lua", 30);
+	auto cloog = g.make_node("cloog", minimal);
+	auto gcc = g.make_node("gcc", minimal);
+	auto minimals = g.make_node("minimal", minimal);
+	auto lapack = g.make_node("lapack", tools);
+	auto cmake = g.make_node("cmake", tools);
+	auto python = g.make_node("python", tools);
+	auto tool = g.make_node("tools", tools);
+	auto xerces = g.make_node("xerces", third_party);
+	auto xalan = g.make_node("xalan", third_party);
+	auto lua = g.make_node("lua", third_party);
+	auto frigo = g.make_node("frigo");
+	auto hambre = g.make_node("hambre");
+	auto sed = g.make_node("sed");
+	auto tonica = g.make_node("tonica");
 
-	gcc->needs(cloog);
-	minimal->needs(cloog);
-	minimal->needs(gcc);
-	lapack->needs(cmake);
-	tools->needs(cmake);
-	tools->needs(python);
-	tools->needs(lapack);
-	xalan->needs(xerces);
+	gcc->relation_of(needs, cloog);
+	minimals->relation_of(needs, cloog);
+	minimals->relation_of(needs, gcc);
+	lapack->relation_of(needs, cmake);
+	tool->relation_of(needs, cmake);
+	tool->relation_of(needs, python);
+	tool->relation_of(needs, lapack);
+	xalan->relation_of(needs, xerces);
 
-	g.calculate();
-	g.show_plan();
+	std::cout << "-------------------------" << std::endl;
+	frigo->relation_of(satisfy, hambre);
+	frigo->relation_of(satisfy, sed);
+	tonica->relation_of(satisfy, sed);
+	tonica->relation_of(esta, frigo);
+
+	std::cout << "Como satisfacer el hambre?" << std::endl;
+	for(auto& node : hambre->how(satisfy))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	std::cout << "Que satisface el frigo?" << std::endl;
+	for(auto& node : frigo->what(satisfy))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	std::cout << "Donde esta la tonica?" << std::endl;
+	for(auto& node : tonica->where(esta))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	std::cout << "En el frigo que hay?" << std::endl;
+	for(auto& node : frigo->how(esta))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	std::cout << "que necesita gcc?" << std::endl;
+	for(auto& node : gcc->what(needs))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	std::cout << "Por quien es necesitado xerces?" << std::endl;
+	for(auto& node : xerces->who(needs))
+	{
+		std::cout << node->get_name() << std::endl;
+	}
+
+	//g.resolve_all(needs);
+	//g.show_plan();
 
 	return 0;
 }
