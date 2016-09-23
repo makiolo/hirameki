@@ -8,25 +8,6 @@
 #include <functional>
 #include <algorithm>
 #include <exception>
-#include <asyncply/parallel.h>
-
-enum kind_layers
-{
-	minimal,
-	tools,
-	third_party,
-	default_layer
-};
-
-enum kind_relations
-{
-	needs,
-	use,
-	improve,
-	satisfy,
-	esta,
-	hay,
-};
 
 class node;
 
@@ -179,7 +160,7 @@ public:
 	using plans_vector = std::vector<nodes_ordered>;
 	using plans_priorized_vector = std::vector<std::pair<int, nodes_ordered> >;
 
-	node_internal make_node(const std::string& key, int priority = default_layer)
+	node_internal make_node(const std::string& key, int priority = 0)
 	{
 		auto newnode = std::make_shared<node>(key, priority);
 		_nodes.insert(_nodes.begin(), newnode);
@@ -188,9 +169,9 @@ public:
 
 	const nodes_ordered& get_container() const { return _nodes; }
 
-	void resolve_all(int kind = needs, bool merge_roots = true)
+	void resolve_all(int kind = 0, bool merge_roots = true)
 	{
-		// 1/4: Generate solutions in each node
+		// 1/5: Generate solutions in each node
 		plans_vector sols;
 		nodes_unordered classified;
 		for(auto& node : _nodes)
@@ -206,7 +187,7 @@ public:
 			}
 		}
 
-		// 2/4: remove solutions are subset of other solution
+		// 2/5: remove solutions are subset of other solution
 		plans_vector sols2 = sols;
 		for(auto& solution1 : sols)
 		{
@@ -235,7 +216,7 @@ public:
 
 		if(merge_roots)
 		{
-			// 3/4: merge solutions with same root
+			// 3/5: merge solutions with same root
 			std::unordered_map<node_internal, nodes_ordered> sols3;
 			for(auto& solution : sols2)
 			{
@@ -253,7 +234,7 @@ public:
 				}
 			}
 
-			// 4/4: write final plan
+			// 4/5: write final plan
 			for(auto& pair : sols3)
 			{
 				nodes_ordered nodes;
@@ -285,7 +266,7 @@ public:
 				}
 			}
 
-			// 5/4: sort using priority
+			// 5/5: sort using priority
 			std::sort(_solutions.begin(), _solutions.end(),
 					[]( const plans_priorized_vector::value_type& one,
 						const plans_priorized_vector::value_type& other) {
@@ -322,77 +303,83 @@ protected:
 
 int main(int, const char**)
 {
+    enum kind_layers
+    {
+        default_layer,
+    	minimal,
+    	tools,
+    	third_party
+    };
+    
+    enum kind_relations
+    {
+    	needs,
+    	use,
+    	improve,
+    	satisfy,
+    	esta,
+    	hay,
+    };
+
 	graph g;
 
-	auto cloog = g.make_node("cloog", minimal);
-	auto gcc = g.make_node("gcc", minimal);
-	auto minimals = g.make_node("minimal", minimal);
-	auto lapack = g.make_node("lapack", tools);
-	auto cmake = g.make_node("cmake", tools);
-	auto python = g.make_node("python", tools);
-	auto tool = g.make_node("tools", tools);
-	auto xerces = g.make_node("xerces", third_party);
-	auto xalan = g.make_node("xalan", third_party);
-	auto lua = g.make_node("lua", third_party);
-	auto frigo = g.make_node("frigo");
-	auto hambre = g.make_node("hambre");
-	auto sed = g.make_node("sed");
-	auto tonica = g.make_node("tonica");
+    std::vector<graph::node_internal> recursos;
+    std::vector<graph::node_internal> lugares;
+    std::vector<graph::node_internal> necesidades;
 
-	gcc->relation_of(needs, cloog);
-	minimals->relation_of(needs, cloog);
-	minimals->relation_of(needs, gcc);
-	lapack->relation_of(needs, cmake);
-	tool->relation_of(needs, cmake);
-	tool->relation_of(needs, python);
-	tool->relation_of(needs, lapack);
-	xalan->relation_of(needs, xerces);
+    // recursos (tienen beneficios)
+	auto tonica = g.make_node("la tonica");
+	auto coca_cola = g.make_node("la coca cola");
+	auto pollo = g.make_node("el pollo");
+	recursos.push_back(tonica);
+	recursos.push_back(coca_cola);
+	recursos.push_back(pollo);
 
-	std::cout << "-------------------------" << std::endl;
-	frigo->relation_of(satisfy, hambre);
-	frigo->relation_of(satisfy, sed);
+    // lugares (tienen costes)
+	auto frigo = g.make_node("el frigo");
+	auto encimera = g.make_node("la encimera");
+	lugares.push_back(frigo);
+	lugares.push_back(encimera);
+	
+	// necesidades
+	auto hambre = g.make_node("el hambre");
+	auto sed = g.make_node("la sed");
+	necesidades.push_back(hambre);
+	necesidades.push_back(sed);
+	
+	// gustos
+	auto rico = g.make_node("rico");
+	auto malo = g.make_node("malo");
+	
+	// relaciones para recurso
+	//      su lugar
+	//      la necesidad que satisface
+
+	pollo->relation_of(satisfy, hambre);
+	pollo->relation_of(esta, frigo);
+	
+	coca_cola->relation_of(satisfy, sed);
+	coca_cola->relation_of(satisfy, hambre);
+	coca_cola->relation_of(esta, encimera);
+	
 	tonica->relation_of(satisfy, sed);
 	tonica->relation_of(esta, frigo);
 
-	std::cout << "Como satisfacer el hambre?" << std::endl;
-	for(auto& node : hambre->how(satisfy))
+	// como satisfacerme y donde esta
+	// elegir el recurso de mayor beneficio con el menor coste de lugar
+	for(auto& need : necesidades)
 	{
-		std::cout << node->get_name() << std::endl;
+	 	// std::cout << "Como satisfacer " << need->get_name() << "?" << std::endl;
+	    	for(auto& node : need->how(satisfy))
+	    	{
+	    		// std::cout << "con " << node->get_name() << ". ¿donde esta el " << node->get_name() << "?" << std::endl;
+			for(auto& node2 : node->where(esta))	
+			{
+				std::cout << "" << node->get_name() << " esta en " << node2->get_name() << " satisface " << need->get_name() << std::endl;
+			}
+	   	}
+		// std::cout << std::endl;
 	}
-
-	std::cout << "Que satisface el frigo?" << std::endl;
-	for(auto& node : frigo->what(satisfy))
-	{
-		std::cout << node->get_name() << std::endl;
-	}
-
-	std::cout << "Donde esta la tonica?" << std::endl;
-	for(auto& node : tonica->where(esta))
-	{
-		std::cout << node->get_name() << std::endl;
-	}
-
-	std::cout << "En el frigo que hay?" << std::endl;
-	for(auto& node : frigo->how(esta))
-	{
-		std::cout << node->get_name() << std::endl;
-	}
-
-	std::cout << "que necesita gcc?" << std::endl;
-	for(auto& node : gcc->what(needs))
-	{
-		std::cout << node->get_name() << std::endl;
-	}
-
-	std::cout << "Por quien es necesitado xerces?" << std::endl;
-	for(auto& node : xerces->who(needs))
-	{
-		std::cout << node->get_name() << std::endl;
-	}
-
-	//g.resolve_all(needs);
-	//g.show_plan();
 
 	return 0;
 }
-
