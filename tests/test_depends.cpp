@@ -68,7 +68,7 @@ public:
 		_inverses.emplace_back(shared(), other, kind);
 	}
 
-	nodes_ordered what(int kind)
+	nodes_ordered solve_detail(int kind)
 	{
 		nodes_ordered resolved;
 		nodes_unordered seen;
@@ -81,12 +81,7 @@ public:
 		return resolved;
 	}
 
-	nodes_ordered where(int kind)
-	{
-		return what(kind);
-	}
-
-	nodes_ordered how(int kind)
+	nodes_ordered solve_deep(int kind)
 	{
 		nodes_ordered resolved;
 		nodes_unordered seen;
@@ -97,11 +92,6 @@ public:
 		resolved.erase(it, resolved.end());
 
 		return resolved;
-	}
-
-	nodes_ordered who(int kind)
-	{
-		return how(kind);
 	}
 
 	const std::string& get_name() const { return _name; }
@@ -302,16 +292,8 @@ protected:
 };
 
 int main(int, const char**)
-{
-    enum kind_layers
-    {
-        default_layer,
-    	minimal,
-    	tools,
-    	third_party
-    };
-    
-    enum kind_relations
+{   
+    enum verbs
     {
     	needs,
     	use,
@@ -327,7 +309,7 @@ int main(int, const char**)
     std::vector<graph::node_internal> lugares;
     std::vector<graph::node_internal> necesidades;
 
-    // recursos (tienen beneficios)
+    	// objeto
 	auto tonica = g.make_node("la tonica");
 	auto coca_cola = g.make_node("la coca cola");
 	auto pollo = g.make_node("el pollo");
@@ -335,7 +317,7 @@ int main(int, const char**)
 	recursos.push_back(coca_cola);
 	recursos.push_back(pollo);
 
-    // lugares (tienen costes)
+    	// espacio
 	auto frigo = g.make_node("el frigo");
 	auto encimera = g.make_node("la encimera");
 	lugares.push_back(frigo);
@@ -370,10 +352,10 @@ int main(int, const char**)
 	for(auto& need : necesidades)
 	{
 	 	// std::cout << "Como satisfacer " << need->get_name() << "?" << std::endl;
-	    	for(auto& node : need->how(satisfy))
+	    	for(auto& node : need->solve_deep(satisfy))
 	    	{
 	    		// std::cout << "con " << node->get_name() << ". ¿donde esta el " << node->get_name() << "?" << std::endl;
-			for(auto& node2 : node->where(esta))	
+			for(auto& node2 : node->solve_detail(esta))	
 			{
 				std::cout << "" << node->get_name() << " esta en " << node2->get_name() << " satisface " << need->get_name() << std::endl;
 			}
