@@ -1,19 +1,11 @@
-add_subdirectory(asyncply)
-
-PROJECT(ORDERCPP CXX)
+PROJECT(HIRAMEKI CXX)
 cmake_minimum_required(VERSION 2.8)
-enable_testing()
 
-IF(NOT DEFINED CMAKE_MODULE_PATH)
-	set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmaki)
-ENDIF()
+set(CMAKI_REPOSITORY "http://artifacts.myftp.biz:8080")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmaki/cmaki.cmake")
+cmaki_setup()
 
-include(utils)
-ENABLE_MODERN_CPP()
-
-include_directories(simple_match/include)
-#GENERATE_LIB(ordercpp)
-
-add_subdirectory(tests)
-add_subdirectory(tests2)
+cmaki2_executable(kmeans kmeans.cpp)
+cmaki_find_package(cryptopp)
+cmaki2_executable(encrypt encrypt.cpp)
 
