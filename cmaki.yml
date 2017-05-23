@@ -1,0 +1,14 @@
+- hirameki:
+    <<: *thirdparty_defaults
+    version: 0.0.0.0
+    version_manager: git
+    cmake_target: null
+    depends:
+        - cryptopp
+    mode: r
+    source: https://github.com/makiolo/hirameki.git
+    targets:
+        - dummy:
+            info:
+                <<: *library_dynamic
+
