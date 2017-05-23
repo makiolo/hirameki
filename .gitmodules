@@ -1,9 +1,3 @@
 [submodule "cmaki"]
 	path = cmaki
 	url = https://github.com/makiolo/cmaki.git
-[submodule "asyncply"]
-	path = asyncply
-	url = https://github.com/makiolo/async-ply.git
-[submodule "simple_match"]
-	path = simple_match
-	url = https://github.com/jbandela/simple_match.git
