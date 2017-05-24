@@ -8,6 +8,7 @@
 #include <filters.h>
 #include <osrng.h>
 #include <dh2.h>
+#include <dh.h>
 
 using namespace CryptoPP;
 
