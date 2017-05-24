@@ -6,6 +6,7 @@
 #include <modes.h>
 #include <aes.h>
 #include <filters.h>
+#include <osrng.h>
 #include <dh2.h>
 
 using namespace CryptoPP;
