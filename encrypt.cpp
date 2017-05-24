@@ -7,7 +7,7 @@
 #include <aes.h>
 #include <filters.h>
 #include <osrng.h>
-#include <dh2.h>
+// #include <dh2.h>
 #include <dh.h>
 
 using namespace CryptoPP;
@@ -56,16 +56,16 @@ TEST(EncryptTests, Test1)
 	// Alice calculates the secret key based on her private integer as well as the
 	// public integer she received from Bob.
 	if (!dhA.Agree(secretKeyA, privA, pubB))
-		return false;
+		return;
 
 	// Bob calculates the secret key based on his private integer as well as the
 	// public integer he received from Alice.
 	if (!dhB.Agree(secretKeyB, privB, pubA))
-		return false;
+		return;
 
 	// Just a validation check. Did Alice and Bob agree on the same secret key?
 	if (VerifyBufsEqualp(secretKeyA.begin(), secretKeyB.begin(), dhA.AgreedValueLength()))
-		return false;
+		return;
 	
 	int aesKeyLength = SHA256::DIGESTSIZE; // 32 bytes = 256 bit key
 	int defBlockSize = AES::BLOCKSIZE;
