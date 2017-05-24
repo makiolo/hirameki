@@ -7,5 +7,4 @@ cmaki_setup()
 
 cmaki2_executable(kmeans kmeans.cpp)
 cmaki_find_package(cryptopp)
-cmaki2_executable(encrypt encrypt.cpp)
-
+cmaki2_gtest(encrypt encrypt.cpp)
