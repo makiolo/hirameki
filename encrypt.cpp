@@ -87,6 +87,7 @@ int main2(int argc, const char * argv[])
 	const char* text = argv[1];
 
 	// Diffie-Hellman
+	// https://www.cryptopp.com/wiki/Diffie-Hellman
 	//
 	// a, g, p, A
 	auto tpl = client();
@@ -122,7 +123,8 @@ int main2(int argc, const char * argv[])
 
 
 
-
+#include <gtest/gtest.h>
+// https://www.cryptopp.com/wiki/Diffie-Hellman
 #include <iostream>
 #include <iomanip>
 
@@ -130,8 +132,10 @@ int main2(int argc, const char * argv[])
 #include <aes.h>
 #include <filters.h>
 
-int main(int argc, char* argv[]) {
+class EncryptTests : testing::Test { };
 
+TEST(EncryptTests, Test1)
+{
     //Key and IV setup
     //AES encryption uses a secret key of a variable length (128-bit, 196-bit or 256-   
     //bit). This key is secretly exchanged between two parties before communication   
@@ -190,6 +194,4 @@ int main(int argc, char* argv[]) {
     std::cout << "Decrypted Text: " << std::endl;
     std::cout << decryptedtext;
     std::cout << std::endl << std::endl;
-
-    return 0;
 }
