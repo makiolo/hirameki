@@ -8,6 +8,8 @@
 #include <filters.h>
 #include <dh2.h>
 
+using namespace CryptoPP;
+
 class EncryptTests : testing::Test { };
 
 TEST(EncryptTests, Test1)
@@ -63,67 +65,36 @@ TEST(EncryptTests, Test1)
 	if (VerifyBufsEqualp(secretKeyA.begin(), secretKeyB.begin(), dhA.AgreedValueLength()))
 		return false;
 	
+	int aesKeyLength = SHA256::DIGESTSIZE; // 32 bytes = 256 bit key
+	int defBlockSize = AES::BLOCKSIZE;
 
+	// Calculate a SHA-256 hash over the Diffie-Hellman session key
+	SecByteBlock key(SHA256::DIGESTSIZE);
+	SHA256().CalculateDigest(key, secretKeyA, secretKeyA.size()); 
 
+	// Generate a random IV
+	byte iv[AES::BLOCKSIZE];
+	arngA.GenerateBlock(iv, AES::BLOCKSIZE);
 
-	//Key and IV setup
-	//AES encryption uses a secret key of a variable length (128-bit, 196-bit or 256-   
-	//bit). This key is secretly exchanged between two parties before communication   
-	//begins. DEFAULT_KEYLENGTH= 16 bytes
-	byte key[ CryptoPP::AES::DEFAULT_KEYLENGTH ], iv[ CryptoPP::AES::BLOCKSIZE ];
-	memset( key, 0x00, CryptoPP::AES::DEFAULT_KEYLENGTH );
-	memset( iv, 0x00, CryptoPP::AES::BLOCKSIZE );
+	char message[] = "Hello! How are you.";
+	int messageLen = (int)strlen(plainText) + 1;
 
-	//
-	// String and Sink setup
-	//
-	std::string plaintext = "Now is the time for all good men to come to the aide...";
-	std::string ciphertext;
-	std::string decryptedtext;
+	//////////////////////////////////////////////////////////////////////////
+	// Encrypt
+	std::cout << "original: " << message << std::endl;
+	
+	CFB_Mode<AES>::Encryption cfbEncryption(key, aesKeyLength, iv);
+	cfbEncryption.ProcessData((byte*)message, (byte*)message, messageLen);
+	
+	std::cout << "encrypted: " << message << std::endl;
 
-	//
-	// Dump Plain Text
-	//
-	std::cout << "Plain Text (" << plaintext.size() << " bytes)" << std::endl;
-	std::cout << plaintext;
-	std::cout << std::endl << std::endl;
-
-	//
-	// Create Cipher Text
-	//
-	CryptoPP::AES::Encryption aesEncryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
-	CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption( aesEncryption, iv );
-
-	CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink( ciphertext ) );
-	stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
-	stfEncryptor.MessageEnd();
-
-	//
-	// Dump Cipher Text
-	//
-	std::cout << "Cipher Text (" << ciphertext.size() << " bytes)" << std::endl;
-	for( int i = 0; i < ciphertext.size(); i++ )
-	{
-	std::cout << "0x" << std::hex << (0xFF & static_cast<byte>(ciphertext[i])) << " ";
-	}
-	std::cout << std::endl << std::endl;
-
-	//
+	//////////////////////////////////////////////////////////////////////////
 	// Decrypt
-	//
-	CryptoPP::AES::Decryption aesDecryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
-	CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption( aesDecryption, iv );
 
-	CryptoPP::StreamTransformationFilter stfDecryptor(cbcDecryption, new CryptoPP::StringSink( decryptedtext ) );
-	stfDecryptor.Put( reinterpret_cast<const unsigned char*>( ciphertext.c_str() ), ciphertext.size() );
-	stfDecryptor.MessageEnd();
-
-	//
-	// Dump Decrypted Text
-	//
-	std::cout << "Decrypted Text: " << std::endl;
-	std::cout << decryptedtext;
-	std::cout << std::endl << std::endl;
+	CFB_Mode<AES>::Decryption cfbDecryption(key, aesKeyLength, iv);
+	cfbDecryption.ProcessData((byte*)message, (byte*)message, messageLen);
+	
+	std::cout << "decrypted: " << message << std::endl;
 }
 
 
