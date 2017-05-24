@@ -1,3 +1,133 @@
+// https://www.cryptopp.com/wiki/Diffie-Hellman
+#include <gtest/gtest.h>
+#include <iostream>
+#include <iomanip>
+
+#include <modes.h>
+#include <aes.h>
+#include <filters.h>
+#include <dh2.h>
+
+class EncryptTests : testing::Test { };
+
+TEST(EncryptTests, Test1)
+{
+	//////////////////////////////////////////////////////////////////////////
+	// Alice
+
+	// Initialize the Diffie-Hellman class with a random prime and base
+	AutoSeededRandomPool rngA;
+	DH dhA;
+	dh.Initialize(rngA, 128);
+
+	// Extract the prime and base. These values could also have been hard coded 
+	// in the application
+	Integer iPrime = dhA.GetGroupParameters().GetModulus();
+	Integer iGenerator = dhA.GetGroupParameters().GetSubgroupGenerator();
+
+	SecByteBlock privA(dhA.PrivateKeyLength());
+	SecByteBlock pubA(dhA.PublicKeyLength());
+	SecByteBlock secretKeyA(dhA.AgreedValueLength());
+
+	// Generate a pair of integers for Alice. The public integer is forwarded to Bob.
+	dhA.GenerateKeyPair(rngA, privA, pubA);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Bob
+
+	AutoSeededRandomPool rngB;
+	// Initialize the Diffie-Hellman class with the prime and base that Alice generated.
+	DH dhB(iPrime, iGenerator);
+
+	SecByteBlock privB(dhB.PrivateKeyLength());
+	SecByteBlock pubB(dhB.PublicKeyLength());
+	SecByteBlock secretKeyB(dhB.AgreedValueLength());
+
+	// Generate a pair of integers for Bob. The public integer is forwarded to Alice.
+	dhB.GenerateKeyPair(rngB, privB, pubB);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Agreement
+
+	// Alice calculates the secret key based on her private integer as well as the
+	// public integer she received from Bob.
+	if (!dhA.Agree(secretKeyA, privA, pubB))
+		return false;
+
+	// Bob calculates the secret key based on his private integer as well as the
+	// public integer he received from Alice.
+	if (!dhB.Agree(secretKeyB, privB, pubA))
+		return false;
+
+	// Just a validation check. Did Alice and Bob agree on the same secret key?
+	if (VerifyBufsEqualp(secretKeyA.begin(), secretKeyB.begin(), dhA.AgreedValueLength()))
+		return false;
+	
+
+
+
+	//Key and IV setup
+	//AES encryption uses a secret key of a variable length (128-bit, 196-bit or 256-   
+	//bit). This key is secretly exchanged between two parties before communication   
+	//begins. DEFAULT_KEYLENGTH= 16 bytes
+	byte key[ CryptoPP::AES::DEFAULT_KEYLENGTH ], iv[ CryptoPP::AES::BLOCKSIZE ];
+	memset( key, 0x00, CryptoPP::AES::DEFAULT_KEYLENGTH );
+	memset( iv, 0x00, CryptoPP::AES::BLOCKSIZE );
+
+	//
+	// String and Sink setup
+	//
+	std::string plaintext = "Now is the time for all good men to come to the aide...";
+	std::string ciphertext;
+	std::string decryptedtext;
+
+	//
+	// Dump Plain Text
+	//
+	std::cout << "Plain Text (" << plaintext.size() << " bytes)" << std::endl;
+	std::cout << plaintext;
+	std::cout << std::endl << std::endl;
+
+	//
+	// Create Cipher Text
+	//
+	CryptoPP::AES::Encryption aesEncryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
+	CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption( aesEncryption, iv );
+
+	CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink( ciphertext ) );
+	stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
+	stfEncryptor.MessageEnd();
+
+	//
+	// Dump Cipher Text
+	//
+	std::cout << "Cipher Text (" << ciphertext.size() << " bytes)" << std::endl;
+	for( int i = 0; i < ciphertext.size(); i++ )
+	{
+	std::cout << "0x" << std::hex << (0xFF & static_cast<byte>(ciphertext[i])) << " ";
+	}
+	std::cout << std::endl << std::endl;
+
+	//
+	// Decrypt
+	//
+	CryptoPP::AES::Decryption aesDecryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
+	CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption( aesDecryption, iv );
+
+	CryptoPP::StreamTransformationFilter stfDecryptor(cbcDecryption, new CryptoPP::StringSink( decryptedtext ) );
+	stfDecryptor.Put( reinterpret_cast<const unsigned char*>( ciphertext.c_str() ), ciphertext.size() );
+	stfDecryptor.MessageEnd();
+
+	//
+	// Dump Decrypted Text
+	//
+	std::cout << "Decrypted Text: " << std::endl;
+	std::cout << decryptedtext;
+	std::cout << std::endl << std::endl;
+}
+
+
+/*
 #include <iostream>
 #include <climits>
 #include <cmath>
@@ -117,81 +247,8 @@ int main2(int argc, const char * argv[])
 
 	return 0;
 }
+*/
 
 
 
 
-
-
-#include <gtest/gtest.h>
-// https://www.cryptopp.com/wiki/Diffie-Hellman
-#include <iostream>
-#include <iomanip>
-
-#include <modes.h>
-#include <aes.h>
-#include <filters.h>
-
-class EncryptTests : testing::Test { };
-
-TEST(EncryptTests, Test1)
-{
-    //Key and IV setup
-    //AES encryption uses a secret key of a variable length (128-bit, 196-bit or 256-   
-    //bit). This key is secretly exchanged between two parties before communication   
-    //begins. DEFAULT_KEYLENGTH= 16 bytes
-    byte key[ CryptoPP::AES::DEFAULT_KEYLENGTH ], iv[ CryptoPP::AES::BLOCKSIZE ];
-    memset( key, 0x00, CryptoPP::AES::DEFAULT_KEYLENGTH );
-    memset( iv, 0x00, CryptoPP::AES::BLOCKSIZE );
-
-    //
-    // String and Sink setup
-    //
-    std::string plaintext = "Now is the time for all good men to come to the aide...";
-    std::string ciphertext;
-    std::string decryptedtext;
-
-    //
-    // Dump Plain Text
-    //
-    std::cout << "Plain Text (" << plaintext.size() << " bytes)" << std::endl;
-    std::cout << plaintext;
-    std::cout << std::endl << std::endl;
-
-    //
-    // Create Cipher Text
-    //
-    CryptoPP::AES::Encryption aesEncryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
-    CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption( aesEncryption, iv );
-
-    CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink( ciphertext ) );
-    stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
-    stfEncryptor.MessageEnd();
-
-    //
-    // Dump Cipher Text
-    //
-    std::cout << "Cipher Text (" << ciphertext.size() << " bytes)" << std::endl;
-    for( int i = 0; i < ciphertext.size(); i++ )
-    {
-        std::cout << "0x" << std::hex << (0xFF & static_cast<byte>(ciphertext[i])) << " ";
-    }
-    std::cout << std::endl << std::endl;
-
-    //
-    // Decrypt
-    //
-    CryptoPP::AES::Decryption aesDecryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
-    CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption( aesDecryption, iv );
-
-    CryptoPP::StreamTransformationFilter stfDecryptor(cbcDecryption, new CryptoPP::StringSink( decryptedtext ) );
-    stfDecryptor.Put( reinterpret_cast<const unsigned char*>( ciphertext.c_str() ), ciphertext.size() );
-    stfDecryptor.MessageEnd();
-
-    //
-    // Dump Decrypted Text
-    //
-    std::cout << "Decrypted Text: " << std::endl;
-    std::cout << decryptedtext;
-    std::cout << std::endl << std::endl;
-}
