@@ -5,6 +5,13 @@
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 		<script src="https://unpkg.com/vue"></script>
 		<script>
+			Vue.component('custom-component', {
+				props: ['id'],
+				template: `
+					<div>custom component with id: {{ id }}</div>
+					<br />
+				`
+			})
 			$(function() {
 				$.getJSON("https://jsonplaceholder.typicode.com/posts", function(result) {
 					var data = {
@@ -16,11 +23,11 @@
 					new Vue(data);
 				});
 			});
-
 		</script>
 	</head>
 	<body>
 		<div id="app">
+			<custom-component id="1234"></custom-component>
 			<dl class="dl-horizontal" v-for="record in json">
 				<dt>{{ record.title }}</dt>
 				<dd>{{ record.body }}</dd>
