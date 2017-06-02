@@ -1,0 +1,30 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+		<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/vue"></script>
+		<script>
+			$(function() {
+				$.getJSON("https://jsonplaceholder.typicode.com/posts", function(result) {
+					var data = {
+						el: 'div#app',
+						data: {
+							json: result
+						}
+					};
+					new Vue(data);
+				});
+			});
+
+		</script>
+	</head>
+	<body>
+		<div id="app">
+			<dl class="dl-horizontal" v-for="record in json">
+				<dt>{{ record.title }}</dt>
+				<dd>{{ record.body }}</dd>
+			</dl>
+		</div>
+	</body>
+</html>
