@@ -4,6 +4,7 @@
 		<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 		<script src="https://unpkg.com/vue"></script>
+		<script src="https://unpkg.com/c3"></script>
 		<script>
 			Vue.component('custom-component', {
 				props: ['id'],
@@ -13,7 +14,7 @@
 				`
 			})
 			$(function() {
-				$.getJSON("http://artifacts-myftp.biz:3000/domotica/salon/temperature", function(result) {
+				$.getJSON("http://artifacts.myftp.biz:3000/domotica/salon/temperature", function(result) {
 					/*
 					    $.each(result, function(key, value){
 						dataPoints.push({x: value[0], y: parseInt(value[1])});
@@ -32,11 +33,41 @@
 	</head>
 	<body>
 		<div id="app">
-			<custom-component id="1234"></custom-component>
-			<dl class="dl-horizontal" v-for="record in json">
-				<dt></dt>
-				<dd>{{ record }}</dd>
-			</dl>
+			<!-- <custom&#45;component id="1234"></custom&#45;component> -->
+			<!-- <dl class="dl&#45;horizontal" v&#45;for="record in json"> -->
+			<!-- 	<dt></dt> -->
+			<!-- 	<dd>{{ record }}</dd> -->
+			<!-- </dl> -->
 		</div>
+		<script>
+			var chart = c3.generate({
+				data: {
+						x: 'x',
+						//        xFormat: '%Y%m%d', // 'xFormat' can be used as custom format of 'x'
+						columns: [
+							['x', '2013-01-01', '2013-01-02', '2013-01-03', '2013-01-04', '2013-01-05', '2013-01-06'],
+							//            ['x', '20130101', '20130102', '20130103', '20130104', '20130105', '20130106'],
+							['data1', 30, 200, 100, 400, 150, 250],
+							['data2', 130, 340, 200, 500, 250, 350]
+						]
+				},
+				axis: {
+					x: {
+						type: 'timeseries',
+						tick: {
+						format: '%Y-%m-%d'
+						}
+					}
+				}
+			});
+
+			setTimeout(function () {
+			chart.load({
+				columns: [
+				['data3', 400, 500, 450, 700, 600, 500]
+				]
+			});
+			}, 1000);
+		</script>
 	</body>
 </html>
