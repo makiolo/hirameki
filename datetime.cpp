@@ -6,19 +6,6 @@
 
 namespace cal {
 
-// add clamp_time
-bool check_time(std::time_t time_to_check, std::time_t on_time, std::time_t off_time)
-{
-	// TODO: use std::difftime
-	if (on_time >= off_time)
-		if (time_to_check >= on_time || time_to_check < off_time)
-			return true;
-	else if (on_time <= off_time)
-		if (time_to_check >= on_time && time_to_check < off_time)
-			return true;
-	return false;
-}
-
 auto to_localtime(std::time_t t)
 {
 	return std::localtime(&t);
@@ -86,6 +73,27 @@ auto add_hour(std::time_t t, int n)
 	return to_time(tm);
 }
 
+auto add_mday(std::time_t t, int n)
+{
+	auto tm = to_localtime(t);
+	tm->tm_mday += n;
+	return to_time(tm);
+}
+
+auto add_mon(std::time_t t, int n)
+{
+	auto tm = to_localtime(t);
+	tm->tm_mon += n;
+	return to_time(tm);
+}
+
+auto add_year(std::time_t t, int n)
+{
+	auto tm = to_localtime(t);
+	tm->tm_year += n;
+	return to_time(tm);
+}
+
 int get_sec(std::time_t t)
 {
 	auto tm = to_localtime(t);
@@ -122,29 +130,60 @@ int get_year(std::time_t t)
 	return tm->tm_year;
 }
 
-auto get_tuple(std::time_t t)
+auto get_time(std::time_t t)
 {
-	return std::make_tuple( get_hour(t), get_min(t) );
+	return std::make_tuple( get_hour(t), get_min(t), get_sec(t) );
 }
 
-double time_high_precision()
+auto get_datetime(std::time_t t)
+{
+	return std::make_tuple( get_year(t), get_mon(t), get_mday(t), get_hour(t), get_min(t), get_sec(t) );
+}
+
+double timestamp_high_precision()
 {
 	// TODO: use to_time_t and convert in time_t
 	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() / 1000000.0;
 }
 
-auto get_timestamp(int hour, int min)
+auto make_time(int hour, int min, int sec = 0)
 {
 	auto tm = to_localtime( time() );
-    struct tm ts;
-    ts.tm_year = tm->tm_year - 1900;
-    ts.tm_mon = tm->tm_mon - 1;
-    ts.tm_mday = tm->tm_mday;
-    ts.tm_hour = hour;
-    ts.tm_min = min;
-    ts.tm_sec = 0;
-    ts.tm_isdst = -1; // Is DST on? 1 = yes, 0 = no, -1 = unknown
-    return to_time(&ts);
+	struct tm ts;
+	ts.tm_year = tm->tm_year - 1900;
+	ts.tm_mon = tm->tm_mon;
+	ts.tm_mday = tm->tm_mday;
+	ts.tm_hour = hour;
+	ts.tm_min = min;
+	ts.tm_sec = sec;
+	ts.tm_isdst = -1; // Is DST on? 1 = yes, 0 = no, -1 = unknown
+	return to_time(&ts);
+}
+	
+auto make_datetime(int year, int mon, int mday, int hour, int min, int sec = 0)
+{
+	struct tm ts;
+	ts.tm_year = year - 1900;
+	ts.tm_mon = mon;
+	ts.tm_mday = mday;
+	ts.tm_hour = hour;
+	ts.tm_min = min;
+	ts.tm_sec = sec;
+	ts.tm_isdst = -1; // Is DST on? 1 = yes, 0 = no, -1 = unknown
+	return to_time(&ts);
+}
+
+// if on_time <= time_to_check < off_time -> true
+// dont work (need use std::difftime)
+bool inside_interval(std::time_t self, std::time_t from, std::time_t to)
+{
+	if (from > to)
+		if (from < self || self < to)
+			return true;
+	else if (from <= to)
+		if (from <= self && self < to)
+			return true;
+	return false;
 }
 
 }
@@ -153,7 +192,7 @@ int main()
 {
 	using namespace cal;
 
-    auto t = get_timestamp(13, 45);
+	auto t = get_timestamp(13, 45);
 	std::cout << "h = " << get_hour(t) << std::endl;
 	std::cout << "m = " << get_min(t) << std::endl;
 	std::cout << "------" << std::endl;
