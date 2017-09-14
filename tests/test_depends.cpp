@@ -57,7 +57,7 @@ public:
 	node& operator=(const node& other) = delete;
 	node& operator=(node&& other) = delete;
 
-	void relation_of(int kind, const node_internal& other)
+	void operator()(int kind, const node_internal& other)
 	{
 		_depends.emplace_back(shared(), other, kind);
 		other->relation_inverse_of(shared(), kind);
@@ -168,7 +168,7 @@ public:
 		{
 			if(classified.count(node) == 0)
 			{
-				auto solution = node->what(kind);
+				auto solution = node->solve_detail(kind);
 				sols.emplace_back( solution );
 				for(auto& n : solution)
 				{
@@ -295,72 +295,69 @@ int main(int, const char**)
 {   
     enum verbs
     {
-    	needs,
-    	use,
-    	improve,
     	satisfy,
     	esta,
-    	hay,
+		es_abierta,
     };
 
 	graph g;
 
-    std::vector<graph::node_internal> recursos;
-    std::vector<graph::node_internal> lugares;
     std::vector<graph::node_internal> necesidades;
 
-    	// objeto
-	auto tonica = g.make_node("la tonica");
-	auto coca_cola = g.make_node("la coca cola");
-	auto pollo = g.make_node("el pollo");
-	recursos.push_back(tonica);
-	recursos.push_back(coca_cola);
-	recursos.push_back(pollo);
+    // objeto
+	auto tonica = g.make_node("tonica");
+	auto coca_cola = g.make_node("coca cola");
+	auto pollo = g.make_node("pollo");
+	auto llave = g.make_node("llave");
 
-    	// espacio
+    // espacio
 	auto frigo = g.make_node("el frigo");
 	auto encimera = g.make_node("la encimera");
-	lugares.push_back(frigo);
-	lugares.push_back(encimera);
-	
-	// necesidades
-	auto hambre = g.make_node("el hambre");
-	auto sed = g.make_node("la sed");
+	auto puerta_salon = g.make_node("la puerta de la habitacion");
+
+	// metas
+	auto hambre = g.make_node("hambre");
+	auto sed = g.make_node("sed");
+	auto descanso = g.make_node("descanso");
 	necesidades.push_back(hambre);
 	necesidades.push_back(sed);
-	
-	// gustos
-	auto rico = g.make_node("rico");
-	auto malo = g.make_node("malo");
-	
-	// relaciones para recurso
-	//      su lugar
-	//      la necesidad que satisface
+	necesidades.push_back(descanso);
 
-	pollo->relation_of(satisfy, hambre);
-	pollo->relation_of(esta, frigo);
-	
-	coca_cola->relation_of(satisfy, sed);
-	coca_cola->relation_of(satisfy, hambre);
-	coca_cola->relation_of(esta, encimera);
-	
-	tonica->relation_of(satisfy, sed);
-	tonica->relation_of(esta, frigo);
+	// objeto esta en el espacio
+	(*pollo)(esta, frigo);
+	(*coca_cola)(esta, encimera);
+	(*llave)(esta, encimera);
+	(*tonica)(esta, frigo);
+
+	// objeto relacionado con objeto
+	(*puerta_salon)(es_abierta, llave);
+
+	// objeto satiface metas
+	(*pollo)(satisfy, hambre);
+	(*coca_cola)(satisfy, sed);
+	(*coca_cola)(satisfy, hambre);
+	(*puerta_salon)(satisfy, descanso);
+	(*tonica)(satisfy, sed);
+
+	for(auto& node2 : puerta_salon->solve_detail(es_abierta))
+	{
+		std::cout << "\t" << puerta_salon->get_name() << " se abre con " << node2->get_name() << std::endl;
+	}
 
 	// como satisfacerme y donde esta
 	// elegir el recurso de mayor beneficio con el menor coste de lugar
 	for(auto& need : necesidades)
 	{
-	 	// std::cout << "Como satisfacer " << need->get_name() << "?" << std::endl;
-	    	for(auto& node : need->solve_deep(satisfy))
-	    	{
-	    		// std::cout << "con " << node->get_name() << ". ¿donde esta el " << node->get_name() << "?" << std::endl;
+	 	std::cout << "Como satisfacer " << need->get_name() << "?" << std::endl;
+		for(auto& node : need->solve_deep(satisfy))
+		{
+			std::cout << "\t\t" << node->get_name() << std::endl;
 			for(auto& node2 : node->solve_detail(esta))	
 			{
-				std::cout << "" << node->get_name() << " esta en " << node2->get_name() << " satisface " << need->get_name() << std::endl;
+				std::cout << "\tHay " << node->get_name() << " esta en " << node2->get_name() << std::endl;
 			}
 	   	}
-		// std::cout << std::endl;
+		std::cout << std::endl;
 	}
 
 	return 0;
